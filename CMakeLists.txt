@@ -6,16 +6,24 @@ project( AdventOfCode2019
     LANGUAGES CXX
 )
 
-# Executables for each day
-add_executable(
-    1_TheTyrannyOfTheRocketEquation
-    src/1/main.cpp
-    src/1/input.txt
-)
+macro (add_copy_input_command TargetName TargetIdx InputFile)
+    add_custom_command(
+        TARGET ${TargetName} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/${TargetIdx}/${InputFile}
+        ${CMAKE_CURRENT_BINARY_DIR}/${InputFile}
+    )
+endmacro()
 
-add_custom_command(
-    TARGET 1_TheTyrannyOfTheRocketEquation POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_SOURCE_DIR}/src/1/input.txt
-    ${CMAKE_CURRENT_BINARY_DIR}/input.txt
-)
+macro (add_day_executable DayName DayIdx)
+    add_executable( 
+        ${DayIdx}_${DayName}
+        src/${DayIdx}/main.cpp
+        src/${DayIdx}/input.txt
+    )
+    add_copy_input_command( ${DayIdx}_${DayName} ${DayIdx} input.txt )
+endmacro()
+
+# Executables for each day
+add_day_executable( TheTyrannyOfTheRocketEquation 1 )
+add_day_executable( 1202ProgramAlarm 2 )
