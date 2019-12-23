@@ -17,3 +17,5 @@ endif()
 
 add_subdirectory(SFML)
 set (SFML_STATIC_LIBRARIES TRUE)
+
+add_subdirectory(boost-cmake)

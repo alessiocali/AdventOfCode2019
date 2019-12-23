@@ -1,3 +1,6 @@
 [submodule "extern/SFML"]
 	path = extern/SFML
 	url = https://github.com/SFML/SFML.git
+[submodule "extern/boost-cmake"]
+	path = extern/boost-cmake
+	url = https://github.com/Orphis/boost-cmake.git
