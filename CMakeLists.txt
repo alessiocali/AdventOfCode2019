@@ -10,7 +10,7 @@ macro (add_copy_input_command TargetName InputFile)
     add_custom_command(
         TARGET ${TargetName} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/src/${TargetName}/${InputFile}
+        ${CMAKE_SOURCE_DIR}/calendar/${TargetName}/${InputFile}
         ${CMAKE_CURRENT_BINARY_DIR}/${InputFile}
     )
 endmacro()
@@ -21,8 +21,11 @@ set(BUILD_SHARED_LIBS FALSE CACHE BOOL "Only build static libs.")
 add_subdirectory(extern)
 add_subdirectory(helpers)
 
+# Add anti regression tests
+add_subdirectory(tests)
+
 # Executables for each day
-add_subdirectory(src/1_TheTyrannyOfTheRocketEquation)
-add_subdirectory(src/2_1202ProgramAlarm)
-add_subdirectory(src/3_CrossedWires)
-add_subdirectory(src/4_SecureContainer)
+add_subdirectory(calendar/1_TheTyrannyOfTheRocketEquation)
+add_subdirectory(calendar/2_1202ProgramAlarm)
+add_subdirectory(calendar/3_CrossedWires)
+add_subdirectory(calendar/4_SecureContainer)

@@ -1,3 +1,5 @@
+#pragma once
+
 using Radians = float;
 using Degrees = float;
 

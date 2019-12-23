@@ -4,3 +4,6 @@
 [submodule "extern/boost-cmake"]
 	path = extern/boost-cmake
 	url = https://github.com/Orphis/boost-cmake.git
+[submodule "extern/Catch2"]
+	path = extern/Catch2
+	url = https://github.com/catchorg/Catch2.git

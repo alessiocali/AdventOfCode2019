@@ -1,88 +1,33 @@
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <regex>
-#include <unordered_set>
-#include <unordered_map>
-
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/Window/Event.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
-#include <SFML/Graphics/CircleShape.hpp>
+#include <CrossedWiresSolver.h>
 
 #include <SimpleControllableView.h>
 
-#define OUT
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <regex>
 
-static constexpr char* WireTurnPattern = "(U|L|R|D)([1-9][0-9]*)";
+#include <SFML/Graphics/CircleShape.hpp>
 
-struct Point
+void CrossedWiresSolver::Init(std::string& inputFilename)
 {
-	float x, y;
+	m_Problem.clear();
 
-	bool operator==(const Point& other) const { return x == other.x && y == other.y; }
-	bool operator!=(const Point& other) const { return !(*this == other); }
-	
-	std::size_t hash() const 
+	std::ifstream inputStream(inputFilename);
+	if (!inputStream.is_open())
 	{
-		return static_cast<std::uint32_t>(x) ^ static_cast<std::uint32_t>(y);
-	}
-};
-
-struct Segment 
-{
-	const Point& pt1, pt2;
-
-	bool IsHorizontal() const { return pt1.y == pt2.y; }
-	bool IsVertical() const { return pt1.x == pt2.y; }
-};
-
-namespace std
-{
-	template<>
-	struct hash<Point>
-	{
-		std::size_t operator()(const Point& point) const
-		{
-			return point.hash();
-		}
-	};
-}
-
-using uint = std::uint32_t;
-using Wire = std::vector<Point>;
-using Problem = std::vector<Wire>;
-using IntersectionSet = std::unordered_set<Point>;
-using IntersectionCosts = std::unordered_map<Point, uint>;
-
-void AddPointToWire(OUT Wire& wire, char direction, uint amount)
-{
-	const Point& previous = wire.back();
-	Point next = { previous.x, previous.y };
-	switch (direction)
-	{
-	case 'U':
-		next.y += amount;
-		break;
-	case 'L':
-		next.x -= amount;
-		break;
-	case 'R':
-		next.x += amount;
-		break;
-	case 'D':
-		next.y -= amount;
-		break;
-	default:
-		std::cerr << "Unhandled direction '" << direction << "'" << std::endl;
+		std::cerr << "Unable to open file " << inputFilename << std::endl;
 		return;
 	}
 
-	wire.push_back(next);
+	std::string inputLine;
+	while (std::getline(inputStream, inputLine))
+	{
+		m_Problem.push_back(ParseInputLine(inputLine));
+	}
 }
 
-Wire ParseInputLine(const std::string& inputLine)
+CrossedWiresSolver::Wire CrossedWiresSolver::ParseInputLine(const std::string& inputLine)
 {
 	Wire parsedWire;
 	std::regex wireTurnRegex(WireTurnPattern);
@@ -107,27 +52,32 @@ Wire ParseInputLine(const std::string& inputLine)
 	return parsedWire;
 }
 
-Problem ReadInput(std::string inputFileName)
+void CrossedWiresSolver::AddPointToWire(OUT Wire& wire, char direction, uint amount)
 {
-	Problem problem;
-
-	std::ifstream inputStream(inputFileName);
-	if (!inputStream.is_open())
+	const Point& previous = wire.back();
+	Point next = { previous.x, previous.y };
+	switch (direction)
 	{
-		std::cout << "Unable to open file " << inputFileName << std::endl;
-		return problem;
+	case 'U':
+		next.y += amount;
+		break;
+	case 'L':
+		next.x -= amount;
+		break;
+	case 'R':
+		next.x += amount;
+		break;
+	case 'D':
+		next.y -= amount;
+		break;
+	default:
+		std::cerr << "Unhandled direction '" << direction << "'" << std::endl;
+		return;
 	}
-
-	std::string inputLine;
-	while (std::getline(inputStream, inputLine))
-	{
-		problem.push_back(ParseInputLine(inputLine));
-	}
-
-	return problem;
+	wire.push_back(next);
 }
 
-bool DoSegmentsIntersect(const Segment& s1, const Segment& s2, OUT Point& intersection)
+bool CrossedWiresSolver::DoSegmentsIntersect(const Segment& s1, const Segment& s2, OUT Point& intersection)
 {
 	if (s1.IsHorizontal() && s2.IsHorizontal())
 	{
@@ -170,7 +120,7 @@ bool DoSegmentsIntersect(const Segment& s1, const Segment& s2, OUT Point& inters
 	}
 }
 
-void ComputeWireIntersections(const Wire& w1, const Wire& w2, OUT IntersectionSet& intersections)
+void CrossedWiresSolver::ComputeWiresIntersections(const Wire& w1, const Wire& w2, OUT IntersectionSet& intersections)
 {
 	if (w1.size() <= 1 || w2.size() <= 1)
 	{
@@ -193,24 +143,24 @@ void ComputeWireIntersections(const Wire& w1, const Wire& w2, OUT IntersectionSe
 	}
 }
 
-IntersectionSet ComputeIntersections(const Problem& problem)
+CrossedWiresSolver::IntersectionSet CrossedWiresSolver::ComputeIntersections(const Problem& problem)
 {
 	IntersectionSet intersections;
 	for (auto it1 = problem.cbegin(); it1 != problem.cend(); it1++)
 	{
 		for (auto it2 = it1 + 1; it2 != problem.cend(); it2++)
 		{
-			ComputeWireIntersections(*it1, *it2, intersections);
+			ComputeWiresIntersections(*it1, *it2, intersections);
 		}
 	}
 	return intersections;
 }
 
-IntersectionCosts ComputeIntersectionCosts(const Wire& wire, const IntersectionSet& intersections)
+CrossedWiresSolver::IntersectionCosts CrossedWiresSolver::ComputeIntersectionCosts(const Wire& wire, const IntersectionSet& intersections)
 {
 	IntersectionCosts costs;
 	uint steps = 0;
-	for (auto it = wire.cbegin() ; it != wire.cend() - 1 ; it++)
+	for (auto it = wire.cbegin(); it != wire.cend() - 1; it++)
 	{
 		const Point& current = *it;
 		const Point& next = *(it + 1);
@@ -234,7 +184,7 @@ IntersectionCosts ComputeIntersectionCosts(const Wire& wire, const IntersectionS
 	return costs;
 }
 
-void AppendWireCosts(OUT IntersectionCosts& cumulativeCosts, const IntersectionCosts& wireCosts)
+void CrossedWiresSolver::AppendWireCosts(OUT IntersectionCosts& cumulativeCosts, const IntersectionCosts& wireCosts)
 {
 	for (const auto& pair : wireCosts)
 	{
@@ -245,9 +195,9 @@ void AppendWireCosts(OUT IntersectionCosts& cumulativeCosts, const IntersectionC
 	}
 }
 
-float ComputeResult_1(const Problem& problem)
+uint CrossedWiresSolver::SolveProblemA() const
 {
-	IntersectionSet intersections = ComputeIntersections(problem);
+	IntersectionSet intersections = ComputeIntersections(m_Problem);
 	auto getManhattanDistance = [](const Point& point)
 	{
 		return std::abs(point.x) + std::abs(point.y);
@@ -261,32 +211,32 @@ float ComputeResult_1(const Problem& problem)
 
 	if (minIntersection != intersections.cend())
 	{
-		return getManhattanDistance(*minIntersection);
+		return static_cast<uint>(getManhattanDistance(*minIntersection));
 	}
 
 	return 0;
 }
 
-uint ComputeResult_2(const Problem& problem)
+uint CrossedWiresSolver::SolveProblemB() const
 {
-	IntersectionSet intersections = ComputeIntersections(problem);
+	IntersectionSet intersections = ComputeIntersections(m_Problem);
 
 	IntersectionCosts cumulativeCosts;
-	for (const Wire& wire : problem)
+	for (const Wire& wire : m_Problem)
 	{
 		IntersectionCosts wireCosts = ComputeIntersectionCosts(wire, intersections);
 		AppendWireCosts(cumulativeCosts, wireCosts);
 	}
 
 	const auto minIntersection = std::min_element(cumulativeCosts.cbegin(), cumulativeCosts.cend(), [](const auto& pair1, const auto& pair2)
-	{
-		return pair1.second < pair2.second;
-	});
+		{
+			return pair1.second < pair2.second;
+		});
 
 	return minIntersection != cumulativeCosts.cend() ? minIntersection->second : 0;
 }
 
-void DebugDrawWire(const Wire& wire, sf::RenderWindow& renderWindow, sf::Color color)
+void CrossedWiresSolver::DebugDrawWire(const Wire& wire, sf::RenderWindow& renderWindow, sf::Color color)
 {
 	constexpr float thickness = 1.f;
 
@@ -305,7 +255,7 @@ void DebugDrawWire(const Wire& wire, sf::RenderWindow& renderWindow, sf::Color c
 	}
 }
 
-void DebugDrawIntersection(const Point& intersection, sf::RenderWindow& renderWindow)
+void CrossedWiresSolver::DebugDrawIntersection(const Point& intersection, sf::RenderWindow& renderWindow)
 {
 	static constexpr float radius = 1.f;
 	sf::CircleShape circle;
@@ -316,7 +266,7 @@ void DebugDrawIntersection(const Point& intersection, sf::RenderWindow& renderWi
 	renderWindow.draw(circle);
 }
 
-void DebugDrawProblem(const Problem& problem, sf::RenderWindow& renderWindow)
+void CrossedWiresSolver::DebugDrawProblem(sf::RenderWindow& renderWindow, const Problem& problem)
 {
 	static const sf::Color colors[] = { sf::Color::Blue, sf::Color::Red, sf::Color::Yellow };
 	uint i = 0;
@@ -332,23 +282,11 @@ void DebugDrawProblem(const Problem& problem, sf::RenderWindow& renderWindow)
 	}
 }
 
-int main(int argc, char** argv)
+void CrossedWiresSolver::DebugDisplay() const
 {
-	if (argc < 2)
-	{
-		std::cout << "Usage: " << argv[0] << "<input-file>" << std::endl;
-		return 0;
-	}
-
-	Problem problem = ReadInput(argv[1]);
-	std::cout << "Solution for problem 1: " << ComputeResult_1(problem) << std::endl;
-	std::cout << "Solution for problem 2: " << ComputeResult_2(problem) << std::endl;
-
 	SimpleControllableView simpleView(sf::VideoMode(1920, 1080), "Crossed Wires", SimpleControllableView::SpeedParameters{ 0.1f, 2.f });
-	simpleView.RunUntilClosed([&problem](auto& renderWindow)
+	simpleView.RunUntilClosed([this](auto& renderWindow)
 	{
-		DebugDrawProblem(problem, renderWindow);
+		DebugDrawProblem(renderWindow, m_Problem);
 	});
-
-	return 0;
 }

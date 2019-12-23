@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -104,51 +106,3 @@ private:
 	static constexpr std::uint32_t OPCODE_MUL = 2;
 	static constexpr std::uint32_t OPCODE_HLT = 99;
 };
-
-std::uint32_t ComputeResult_1(const char* filename)
-{
-	IntcodeProgram program(filename, { 12, 2 });
-	if (!program.IsValid())
-	{
-		std::cout << "Error: couldn't process input file " << filename << std::endl;
-	}
-	program.Execute();
-	return program.GetOpCodeAt(0);
-}
-
-std::uint32_t ComputeResult_2(const char* filename)
-{
-	constexpr std::uint32_t Solution = 19690720;
-
-	// Brute force time!
-	for (std::uint32_t noun = 0; noun < 100; noun++)
-	{
-		for (std::uint32_t verb = 0; verb < 100; verb++)
-		{
-			IntcodeProgram program(filename, { noun, verb });
-			program.Execute();
-
-			if (program.GetOpCodeAt(0) == Solution)
-			{
-				return 100 * noun + verb;
-			}
-		}
-	}
-
-	std::cout << "Unable to find a result for Problem 2" << std::endl;
-	return 0;
-}
-
-int main(int argc, char** argv)
-{
-	if (argc <= 1)
-	{
-		std::cout << "Usage: " << argv[0] << " <input-file> " << std::endl;
-		return 0;
-	}
-
-	std::cout << "Solution of problem 1: " << ComputeResult_1(argv[1]) << std::endl;
-	std::cout << "Solution of problem 2: " << ComputeResult_2(argv[1]) << std::endl;
-
-	return 0;
-}
