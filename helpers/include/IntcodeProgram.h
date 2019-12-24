@@ -1,40 +1,29 @@
 #pragma once
 
-#include <iostream>
-#include <fstream>
 #include <vector>
-#include <sstream>
+#include <unordered_map>
+#include <memory>
 #include <string>
 
 class IntcodeProgram
 {
 public:
+	enum class ExecutionStatus
+	{
+		Continue,
+		Halt
+	};
+
 	struct Init
 	{
 		std::uint32_t noun;
 		std::uint32_t verb;
 	};
 
-	using ProgramData = std::vector<std::uint32_t>;
+	using OpCode = std::uint32_t;
+	using ProgramData = std::vector<OpCode>;
 
-	explicit IntcodeProgram(std::string filename, Init init)
-	{
-		std::ifstream input(filename);
-		if (!input.is_open())
-		{
-			return;
-		}
-
-		std::string opCodeString;
-		while (std::getline(input, opCodeString, ','))
-		{
-			std::uint32_t opCode = static_cast<std::uint32_t>(std::stoi(opCodeString));
-			m_Program.push_back(opCode);
-		}
-
-		m_Program[1] = init.noun;
-		m_Program[2] = init.verb;
-	}
+	explicit IntcodeProgram(std::string filename, Init init);
 
 	template<typename Functor>
 	void PreProcess(Functor f)
@@ -42,67 +31,53 @@ public:
 		f(m_Program);
 	}
 
-	void Execute()
-	{
-		ProgramIterator it = m_Program.begin();
-		ProgramIterator end = m_Program.end();
-		while (it != end)
-		{
-			if (!Process(it))
-			{
-				break;
-			}
-			it++;
-		}
-	}
+	void Execute();
 
 	inline bool IsValid() const { return !m_Program.empty(); }
-	inline std::uint32_t GetOpCodeAt(std::size_t idx) const { return m_Program[idx]; }
+	inline OpCode GetOpCodeAt(std::size_t idx) const { return m_Program[idx]; }
 
 private:
 	using ProgramIterator = std::vector<std::uint32_t>::iterator;
 
-	bool Process(ProgramIterator& it)
-	{
-		switch (*it)
-		{
-		case OPCODE_ADD:
-		{
-			std::uint32_t in1 = *(++it);
-			std::uint32_t in2 = *(++it);
-			std::uint32_t out = *(++it);
-			Add(in1, in2, out);
-			return true;
-		}
-		case OPCODE_MUL:
-		{
-			std::uint32_t in1 = *(++it);
-			std::uint32_t in2 = *(++it);
-			std::uint32_t out = *(++it);
-			Mul(in1, in2, out);
-			return true;
-		}
-		case OPCODE_HLT:
-			return false;
-		default:
-			std::cerr << "Unexpected OPCODE " << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
-			return false;
-		}
-	}
+	ExecutionStatus Process(ProgramIterator& it);
 
-	void Add(std::uint32_t in1, std::uint32_t in2, std::uint32_t out)
+	class Instruction 
 	{
-		m_Program[out] = m_Program[in1] + m_Program[in2];
-	}
+	public:
+		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const = 0;
+	};
 
-	void Mul(std::uint32_t in1, std::uint32_t in2, std::uint32_t out)
+	class Add : public Instruction
 	{
-		m_Program[out] = m_Program[in1] * m_Program[in2];
-	}
+		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override;
+	};
+
+	class Mul : public Instruction
+	{
+		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override;
+	};
+
+	class Halt : public Instruction
+	{
+		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override { return ExecutionStatus::Halt; }
+	};
+
+	using InstructionPtr = std::unique_ptr<const Instruction>;
+	using InstructionSet = std::unordered_map<OpCode, InstructionPtr>;
+	
+	// Used for static init of the InstructionSet
+	class InstructionSetHolder
+	{
+	public:
+		InstructionSetHolder();
+		inline const InstructionSet& GetInstructionSet() const { return m_InstructionSet; }
+
+	private:
+		InstructionSet m_InstructionSet;
+	};
+
+	static const InstructionSetHolder ms_InstructionSetHolder;
+	static const InstructionSet& GetInstructionSet() { return ms_InstructionSetHolder.GetInstructionSet(); }
 
 	ProgramData m_Program;
-
-	static constexpr std::uint32_t OPCODE_ADD = 1;
-	static constexpr std::uint32_t OPCODE_MUL = 2;
-	static constexpr std::uint32_t OPCODE_HLT = 99;
 };

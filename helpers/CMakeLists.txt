@@ -2,7 +2,9 @@ add_library( Helpers
     include/CommonDefines.h
     include/MathHelpers.h
     include/ProblemSolver.h
+
     include/IntcodeProgram.h
+    src/IntcodeProgram.cpp
 
     include/SimpleControllableView.h
     src/SimpleControllableView.cpp
