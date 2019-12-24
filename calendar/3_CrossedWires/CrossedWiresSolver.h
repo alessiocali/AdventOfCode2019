@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ProblemSolver.h>
 
 #include <CommonDefines.h>

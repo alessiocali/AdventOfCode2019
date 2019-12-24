@@ -15,6 +15,9 @@ add_executable(
 
     ${CalendarDir}/4_SecureContainer/SecureContainerSolver.h
     ${CalendarDir}/4_SecureContainer/SecureContainerSolver.cpp
+
+    ${CalendarDir}/5_SunnyWithAChanceOfAsteroids/SunnyWithAChanceOfAsteroidsSolver.h
+    ${CalendarDir}/5_SunnyWithAChanceOfAsteroids/SunnyWithAChanceOfAsteroidsSolver.cpp
 )
 
 target_link_libraries(
@@ -33,9 +36,11 @@ target_include_directories(
     ${CalendarDir}/2_1202ProgramAlarm
     ${CalendarDir}/3_CrossedWires
     ${CalendarDir}/4_SecureContainer
+    ${CalendarDir}/5_SunnyWithAChanceOfAsteroids
 )
 
 file ( COPY ${CalendarDir}/1_TheTyrannyOfTheRocketEquation/Tyranny_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
 file ( COPY ${CalendarDir}/2_1202ProgramAlarm/1202_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
 file ( COPY ${CalendarDir}/3_CrossedWires/Wires_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
 # No input file for 4_SecureContainer
+file ( COPY ${CalendarDir}/5_SunnyWithAChanceOfAsteroids/Sunny_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )

@@ -23,7 +23,10 @@ public:
 
     void OutputResult() const
     {
-        std::cout << "Solution of Problem A: " << SolveProblemA() << std::endl;
-        std::cout << "Solution of Problem B: " << SolveProblemB() << std::endl;
+		SolutionAType solutionA = SolveProblemA();
+		SolutionBType solutionB = SolveProblemB();
+
+        std::cout << "Solution of Problem A: " << solutionA << std::endl;
+        std::cout << "Solution of Problem B: " << solutionB << std::endl;
     }
 };

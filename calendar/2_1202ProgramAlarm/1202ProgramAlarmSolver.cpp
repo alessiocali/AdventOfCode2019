@@ -4,7 +4,8 @@
 
 std::uint32_t _1202ProgramAlarmSolver::SolveProblemA() const
 {
-	IntcodeProgram program(m_ProgramFilename, { 12, 2 });
+	IntCodeProgram program(m_ProgramFilename);
+	program.SetNounAndVerb({ 12, 2 });
 	if (!program.IsValid())
 	{
 		std::cerr << "Error: couldn't process input file " << m_ProgramFilename << std::endl;
@@ -12,7 +13,7 @@ std::uint32_t _1202ProgramAlarmSolver::SolveProblemA() const
 	}
 
 	program.Execute();
-	return program.GetOpCodeAt(0);
+	return program.GetIntCodeAt(0);
 }
 
 std::uint32_t _1202ProgramAlarmSolver::SolveProblemB() const
@@ -24,10 +25,11 @@ std::uint32_t _1202ProgramAlarmSolver::SolveProblemB() const
 	{
 		for (std::uint32_t verb = 0; verb < 100; verb++)
 		{
-			IntcodeProgram program(m_ProgramFilename, { noun, verb });
+			IntCodeProgram program(m_ProgramFilename);
+			program.SetNounAndVerb({ noun, verb });
 			program.Execute();
 
-			if (program.GetOpCodeAt(0) == Solution)
+			if (program.GetIntCodeAt(0) == Solution)
 			{
 				return 100 * noun + verb;
 			}

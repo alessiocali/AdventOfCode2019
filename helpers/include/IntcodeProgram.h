@@ -4,67 +4,73 @@
 #include <unordered_map>
 #include <memory>
 #include <string>
+#include <iostream>
 
-class IntcodeProgram
+/****************************************************************************************************
+		BRIEF TERMINOLOGY
+
+- IntCode : A number composing an Intcode Program
+- Program : A sequence of Intcodes
+- InstructionCode : An Intcode which can be decomposed in an OpCode and zero or more ParameterModes
+- OpCode : Two digits representing an Instruction to execute
+- ParameterMode : A single digit representing how to interpret subsequent Intcode
+
+*****************************************************************************************************/
+
+class IntCodeProgram
 {
 public:
 	enum class ExecutionStatus
 	{
 		Continue,
+		Jump,
 		Halt
 	};
 
-	struct Init
+	struct InitData
 	{
 		std::uint32_t noun;
 		std::uint32_t verb;
 	};
 
-	using OpCode = std::uint32_t;
-	using ProgramData = std::vector<OpCode>;
-
-	explicit IntcodeProgram(std::string filename, Init init);
-
-	template<typename Functor>
-	void PreProcess(Functor f)
+	enum class OpCode : int
 	{
-		f(m_Program);
-	}
+		ADD = 1,
+		MUL = 2,
+		IN_ = 3,
+		OU_ = 4,
+		JT_ = 5,
+		JF_ = 6,
+		LT_ = 7,
+		EQU = 8,
+		HLT = 99
+	};
 
+	enum class ParameterMode : int
+	{
+		POS = 0,
+		IMM = 1
+	};
+
+	using IntCode = int;
+	using ProgramData = std::vector<IntCode>;
+
+	explicit IntCodeProgram(std::string filename);
+
+	void SetNounAndVerb(InitData init);
 	void Execute();
 
+	inline void SetOutputStream(std::shared_ptr<std::ostream> ostream) { m_OutputStream = ostream; }
+	inline void SetInputStream(std::shared_ptr<std::istream> istream) { m_InputStream = istream; }
+
 	inline bool IsValid() const { return !m_Program.empty(); }
-	inline OpCode GetOpCodeAt(std::size_t idx) const { return m_Program[idx]; }
+	inline IntCode GetIntCodeAt(std::size_t idx) const { return m_Program[idx]; }
 
 private:
-	using ProgramIterator = std::vector<std::uint32_t>::iterator;
-
-	ExecutionStatus Process(ProgramIterator& it);
-
-	class Instruction 
-	{
-	public:
-		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const = 0;
-	};
-
-	class Add : public Instruction
-	{
-		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override;
-	};
-
-	class Mul : public Instruction
-	{
-		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override;
-	};
-
-	class Halt : public Instruction
-	{
-		virtual ExecutionStatus Execute(ProgramIterator& it, ProgramData& program) const override { return ExecutionStatus::Halt; }
-	};
-
-	using InstructionPtr = std::unique_ptr<const Instruction>;
+	using ProgramIterator = ProgramData::iterator;
+	using InstructionPtr = ExecutionStatus(IntCodeProgram::*)(ProgramIterator&);
 	using InstructionSet = std::unordered_map<OpCode, InstructionPtr>;
-	
+
 	// Used for static init of the InstructionSet
 	class InstructionSetHolder
 	{
@@ -76,8 +82,41 @@ private:
 		InstructionSet m_InstructionSet;
 	};
 
-	static const InstructionSetHolder ms_InstructionSetHolder;
-	static const InstructionSet& GetInstructionSet() { return ms_InstructionSetHolder.GetInstructionSet(); }
+	ExecutionStatus Process(ProgramIterator& it);
+	IntCode GetValueFromParameterMode(ParameterMode mode, IntCode intCode) const;
+
+	static bool IsIntCodeAnInstructionCode(IntCode intCode);
+	static bool IsValueAParameterMode(int value);
+
+	static std::vector<ParameterMode> ExtractParameterModes(IntCode value, std::size_t count);
+
+	ExecutionStatus Add(ProgramIterator& it);
+	ExecutionStatus Mul(ProgramIterator& it);
+	ExecutionStatus Input(ProgramIterator& it);
+	ExecutionStatus Output(ProgramIterator& it);
+	ExecutionStatus JumpIfTrue(ProgramIterator& it);
+	ExecutionStatus JumpIfFalse(ProgramIterator& it);
+	ExecutionStatus LessThan(ProgramIterator& it);
+	ExecutionStatus Equals(ProgramIterator& it);
+	ExecutionStatus Halt(ProgramIterator& it) { return ExecutionStatus::Halt; }
+
+	template<typename IntCodeTest>
+	ExecutionStatus InternalJump(ProgramIterator& it, IntCodeTest test);
+
+	template<typename IntCodeComparison>
+	ExecutionStatus InternalCompare(ProgramIterator& it, IntCodeComparison compare);
+
+	static const InstructionSet& GetInstructionSet() 
+	{
+		static const InstructionSetHolder ms_InstructionSetHolder;
+		return ms_InstructionSetHolder.GetInstructionSet(); 
+	}
 
 	ProgramData m_Program;
+
+	inline std::ostream& GetOutputStream() { return m_OutputStream ? *m_OutputStream : std::cout; }
+	inline std::istream& GetInputStream() { return m_InputStream ? *m_InputStream : std::cin; }
+	
+	std::shared_ptr<std::ostream> m_OutputStream;
+	std::shared_ptr<std::istream> m_InputStream;
 };

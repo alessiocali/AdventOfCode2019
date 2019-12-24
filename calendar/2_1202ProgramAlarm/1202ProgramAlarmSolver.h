@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ProblemSolver.h>
 
 class _1202ProgramAlarmSolver : public ProblemSolver<std::string, std::uint32_t, std::uint32_t>
