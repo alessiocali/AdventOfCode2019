@@ -6,6 +6,7 @@
 #include <CrossedWiresSolver.h>
 #include <SecureContainerSolver.h>
 #include <SunnyWithAChanceOfAsteroidsSolver.h>
+#include <UniversalOrbitMapSolver.h>
 
 template<typename Solver, typename InputType, typename SolutionAType, typename SolutionBType>
 void ValidateProblem(InputType input, SolutionAType solutionA, SolutionBType solutionB)
@@ -45,4 +46,10 @@ TEST_CASE("SunnyWithAChanceOfAsteroids")
 {
 	constexpr const char* input = "inputs/Sunny_Input.txt";
 	ValidateProblem<SunnyWithAChanceOfAsteroidsSolver, std::string>(input, 12896948, 7704130);
+}
+
+TEST_CASE("UniversalOrbitMap")
+{
+	constexpr const char* input = "inputs/Orbit_Input.txt";
+	ValidateProblem<UniversalOrbitMapSolver, std::string>(input, 154386, 346);
 }
