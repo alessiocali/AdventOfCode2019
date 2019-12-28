@@ -3,6 +3,8 @@ add_library( Helpers
     include/MathHelpers.h
     include/ProblemSolver.h
 
+    include/PermutationGenerator.h
+
     include/IntcodeProgram.h
     src/IntcodeProgram.cpp
 
@@ -16,9 +18,6 @@ add_library( Helpers
 target_include_directories( Helpers
     PUBLIC    
     include/
-    
-    PRIVATE
-    src/
 )
 
 target_compile_features( Helpers

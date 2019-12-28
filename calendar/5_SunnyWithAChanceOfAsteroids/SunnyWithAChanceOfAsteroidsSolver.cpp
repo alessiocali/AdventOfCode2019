@@ -16,27 +16,21 @@ std::uint32_t SunnyWithAChanceOfAsteroidsSolver::SolveProblemB() const
 
 std::uint32_t SunnyWithAChanceOfAsteroidsSolver::SolveWithInput(std::uint32_t input) const
 {
-	std::shared_ptr<std::iostream> outputStringStream = std::make_shared<std::stringstream>();
-	std::shared_ptr<std::iostream> inputStringStream = std::make_shared<std::stringstream>();
-
-	*inputStringStream << input << std::endl;
-
 	IntCodeProgram program(m_InputFilename);
-	program.SetOutputStream(outputStringStream);
-	program.SetInputStream(inputStringStream);
+	program.FeedInput(input);
 	program.Execute();
 
-	std::vector<int> output = GetOutputAsIntegers(*outputStringStream);
+	std::vector<int> output = GetOutputAsIntegers(program);
 
 	return static_cast<std::uint32_t>(output.back());
 }
 
-std::vector<int> SunnyWithAChanceOfAsteroidsSolver::GetOutputAsIntegers(std::istream& inputStream)
+std::vector<int> SunnyWithAChanceOfAsteroidsSolver::GetOutputAsIntegers(IntCodeProgram& program)
 {
 	std::vector<int> output;
 
 	int temp;
-	while (inputStream >> temp)
+	while (program.GetOutput(temp))
 	{
 		output.push_back(temp);
 	}

@@ -7,6 +7,7 @@
 #include <SecureContainerSolver.h>
 #include <SunnyWithAChanceOfAsteroidsSolver.h>
 #include <UniversalOrbitMapSolver.h>
+#include <AmplificationCircuitSolver.h>
 
 template<typename Solver, typename InputType, typename SolutionAType, typename SolutionBType>
 void ValidateProblem(InputType input, SolutionAType solutionA, SolutionBType solutionB)
@@ -52,4 +53,10 @@ TEST_CASE("UniversalOrbitMap")
 {
 	constexpr const char* input = "inputs/Orbit_Input.txt";
 	ValidateProblem<UniversalOrbitMapSolver, std::string>(input, 154386, 346);
+}
+
+TEST_CASE("AmplificationCircuit")
+{
+	constexpr const char* input = "inputs/Amplification_Input.txt";
+	ValidateProblem<AmplificationCircuitSolver, std::string>(input, 273814, 34579864);
 }

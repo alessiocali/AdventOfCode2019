@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <iostream>
+#include <sstream>
 
 /****************************************************************************************************
 		BRIEF TERMINOLOGY
@@ -20,11 +21,20 @@
 class IntCodeProgram
 {
 public:
-	enum class ExecutionStatus
+	enum class ExecutionProgress
 	{
 		Continue,
 		Jump,
+		Pause,
 		Halt
+	};
+
+	enum class ExecutionStatus
+	{
+		NotStarted,
+		Running,
+		Paused,
+		Halted
 	};
 
 	struct InitData
@@ -57,19 +67,33 @@ public:
 
 	explicit IntCodeProgram(std::string filename);
 
+	IntCodeProgram(const IntCodeProgram& other) = delete;
+	IntCodeProgram& operator=(const IntCodeProgram& other) = delete;
+
+	// The internal streams are trivially movable, but not copyable
+	IntCodeProgram(IntCodeProgram&& other) = default;
+	IntCodeProgram& operator=(IntCodeProgram&& other) = default;
+
 	void SetNounAndVerb(InitData init);
+	void Reset();
 	void Execute();
 
-	inline void SetOutputStream(std::shared_ptr<std::ostream> ostream) { m_OutputStream = ostream; }
-	inline void SetInputStream(std::shared_ptr<std::istream> istream) { m_InputStream = istream; }
+	template<typename T>
+	inline bool FeedInput(T input) { return bool(m_InputStream << input << std::endl); }
 
+	template<typename T>
+	inline bool GetOutput(T& output) { return bool(m_OutputStream >> output); }
+
+	inline void SetPauseOnOutput(bool pauseOnOutput) { m_PauseOnOutput = pauseOnOutput; }
 	inline bool IsValid() const { return !m_Program.empty(); }
+	inline bool IsRunning() const { return m_Status == ExecutionStatus::Running; }
+	inline bool IsHalted() const { return m_Status == ExecutionStatus::Halted; }
 	inline IntCode GetIntCodeAt(std::size_t idx) const { return m_Program[idx]; }
 
 private:
 	using ProgramIterator = ProgramData::iterator;
-	using InstructionPtr = ExecutionStatus(IntCodeProgram::*)(ProgramIterator&);
-	using InstructionSet = std::unordered_map<OpCode, InstructionPtr>;
+	using InstructionFnc = ExecutionProgress(IntCodeProgram::*)(ProgramIterator&);
+	using InstructionSet = std::unordered_map<OpCode, InstructionFnc>;
 
 	// Used for static init of the InstructionSet
 	class InstructionSetHolder
@@ -82,29 +106,31 @@ private:
 		InstructionSet m_InstructionSet;
 	};
 
-	ExecutionStatus Process(ProgramIterator& it);
+	ExecutionProgress Process(ProgramIterator& it);
 	IntCode GetValueFromParameterMode(ParameterMode mode, IntCode intCode) const;
+
+	static ProgramData LoadFromFile(const std::string& filename);
 
 	static bool IsIntCodeAnInstructionCode(IntCode intCode);
 	static bool IsValueAParameterMode(int value);
 
 	static std::vector<ParameterMode> ExtractParameterModes(IntCode value, std::size_t count);
 
-	ExecutionStatus Add(ProgramIterator& it);
-	ExecutionStatus Mul(ProgramIterator& it);
-	ExecutionStatus Input(ProgramIterator& it);
-	ExecutionStatus Output(ProgramIterator& it);
-	ExecutionStatus JumpIfTrue(ProgramIterator& it);
-	ExecutionStatus JumpIfFalse(ProgramIterator& it);
-	ExecutionStatus LessThan(ProgramIterator& it);
-	ExecutionStatus Equals(ProgramIterator& it);
-	ExecutionStatus Halt(ProgramIterator& it) { return ExecutionStatus::Halt; }
+	ExecutionProgress Add(ProgramIterator& it);
+	ExecutionProgress Mul(ProgramIterator& it);
+	ExecutionProgress Input(ProgramIterator& it);
+	ExecutionProgress Output(ProgramIterator& it);
+	ExecutionProgress JumpIfTrue(ProgramIterator& it);
+	ExecutionProgress JumpIfFalse(ProgramIterator& it);
+	ExecutionProgress LessThan(ProgramIterator& it);
+	ExecutionProgress Equals(ProgramIterator& it);
+	ExecutionProgress Halt(ProgramIterator& it) { return ExecutionProgress::Halt; }
 
 	template<typename IntCodeTest>
-	ExecutionStatus InternalJump(ProgramIterator& it, IntCodeTest test);
+	ExecutionProgress InternalJump(ProgramIterator& it, IntCodeTest test);
 
 	template<typename IntCodeComparison>
-	ExecutionStatus InternalCompare(ProgramIterator& it, IntCodeComparison compare);
+	ExecutionProgress InternalCompare(ProgramIterator& it, IntCodeComparison compare);
 
 	static const InstructionSet& GetInstructionSet() 
 	{
@@ -112,11 +138,18 @@ private:
 		return ms_InstructionSetHolder.GetInstructionSet(); 
 	}
 
-	ProgramData m_Program;
+	inline std::ostream& GetOutputStream() { return m_OutputStream; }
+	inline std::istream& GetInputStream() { return m_InputStream; }
 
-	inline std::ostream& GetOutputStream() { return m_OutputStream ? *m_OutputStream : std::cout; }
-	inline std::istream& GetInputStream() { return m_InputStream ? *m_InputStream : std::cin; }
+	const ProgramData	m_OriginalProgram;
+	ProgramData			m_Program;
 	
-	std::shared_ptr<std::ostream> m_OutputStream;
-	std::shared_ptr<std::istream> m_InputStream;
+	// I couldn't store a ProgramIterator because it gets invalidated on move/copy
+	// and I'm too lazy to write a move ctor just for that.
+	std::size_t			m_InstructionPointer;	
+	ExecutionStatus		m_Status = ExecutionStatus::NotStarted;
+	bool				m_PauseOnOutput = false;
+
+	std::stringstream	m_OutputStream;
+	std::stringstream	m_InputStream;
 };

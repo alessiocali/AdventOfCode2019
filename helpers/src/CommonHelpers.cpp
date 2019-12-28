@@ -30,3 +30,17 @@ std::string SimpleGetInputFileFromArgs(int argc, char** argv)
 		return varMap[AN_Input].as<std::string>();
 	}
 }
+
+std::vector<uint> DecomposeInDigits(uint value)
+{
+	std::vector<uint> digits;
+	
+	do 
+	{
+		digits.push_back(value % 10);
+		value /= 10;
+	} 
+	while (value > 0);
+	
+	return digits;
+}

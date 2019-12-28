@@ -87,20 +87,30 @@ IntCodeProgram::IntCode IntCodeProgram::GetValueFromParameterMode(ParameterMode 
 	}
 }
 
-IntCodeProgram::IntCodeProgram(std::string filename)
+IntCodeProgram::ProgramData IntCodeProgram::LoadFromFile(const std::string& filename)
 {
+	ProgramData program;
+
 	std::ifstream input(filename);
 	if (!input.is_open())
 	{
-		return;
+		return program;
 	}
 
 	std::string programString;
 	while (std::getline(input, programString, ','))
 	{
 		IntCode intCode = static_cast<IntCode>(std::stoi(programString));
-		m_Program.push_back(intCode);
+		program.push_back(intCode);
 	}
+
+	return program;
+}
+
+IntCodeProgram::IntCodeProgram(std::string fileName)
+	: m_OriginalProgram(LoadFromFile(fileName))
+{
+	Reset();
 }
 
 void IntCodeProgram::SetNounAndVerb(InitData initData)
@@ -109,52 +119,76 @@ void IntCodeProgram::SetNounAndVerb(InitData initData)
 	m_Program[2] = initData.verb;
 }
 
+void IntCodeProgram::Reset()
+{
+	m_Program = m_OriginalProgram;
+	m_InstructionPointer = 0;
+	m_Status = ExecutionStatus::NotStarted;
+	
+	m_InputStream.str(std::string());
+	m_InputStream.clear();
+
+	m_OutputStream.str(std::string());
+	m_OutputStream.clear();
+}
+
 void IntCodeProgram::Execute()
 {
-	ProgramIterator it = m_Program.begin();
+	m_Status = ExecutionStatus::Running;
+
+	ProgramIterator it = m_Program.begin() + m_InstructionPointer;
 	ProgramIterator end = m_Program.end();
-	while (it != end)
+
+	while (it != end && IsRunning())
 	{
-		const ExecutionStatus status = Process(it);
+		const ExecutionProgress status = Process(it);
 		switch(status)
 		{
-		case ExecutionStatus::Halt:
-			return;
-		case ExecutionStatus::Jump:
+		case ExecutionProgress::Halt:
+			m_Status = ExecutionStatus::Halted;
+			break;
+		case ExecutionProgress::Pause:
+			it++;
+			m_Status = ExecutionStatus::Paused;
+			break;
+		case ExecutionProgress::Jump:
 			continue;
-		case ExecutionStatus::Continue:
+		case ExecutionProgress::Continue:
 			it++;
 			break;
 		default:
 			std::cerr << "Unrecognized ExecutionStatus: " << static_cast<int>(status) << std::endl;
-			return;
+			m_Status = ExecutionStatus::Halted;
+			break;
 		}
 	}
+
+	m_InstructionPointer = std::distance(m_Program.begin(), it);
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Process(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Process(ProgramIterator& it)
 {
 	if (!IsIntCodeAnInstructionCode(*it))
 	{
-		std::cerr << "Unexpected INTCODE is not an INSTRUCTION_CODE :" << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
-		return ExecutionStatus::Halt;
+		std::cerr << "Unexpected INTCODE is not an INSTRUCTION_CODE: " << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
+		return ExecutionProgress::Halt;
 	}
 
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	const InstructionSet& instructionSet = GetInstructionSet();
 	if (instructionSet.count(opCode) && instructionSet.at(opCode))
 	{
-		const InstructionPtr instruction = instructionSet.at(opCode);
+		const InstructionFnc instruction = instructionSet.at(opCode);
 		return (this->*instruction)(it);
 	}
 	else
 	{
 		std::cerr << "Unexpected OPCODE " << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
-		return ExecutionStatus::Halt;
+		return ExecutionProgress::Halt;
 	}
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Add(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Add(ProgramIterator& it)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert(opCode == OpCode::ADD);
@@ -168,10 +202,10 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::Add(ProgramIterator& it)
 
 	m_Program[out] = in1 + in2;
 
-	return ExecutionStatus::Continue;
+	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Mul(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Mul(ProgramIterator& it)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert(opCode == OpCode::MUL);
@@ -185,10 +219,10 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::Mul(ProgramIterator& it)
 
 	m_Program[out] = in1Val * in2Val;
 
-	return ExecutionStatus::Continue;
+	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Input(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Input(ProgramIterator& it)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert(opCode == OpCode::IN_);
@@ -202,10 +236,10 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::Input(ProgramIterator& it)
 	IntCode out = *(++it);
 	m_Program[out] = static_cast<IntCode>(value);
 
-	return ExecutionStatus::Continue;
+	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Output(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Output(ProgramIterator& it)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert(opCode == OpCode::OU_);
@@ -216,21 +250,21 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::Output(ProgramIterator& it)
 
 	GetOutputStream() << static_cast<int>(in1) << std::endl;
 	
-	return ExecutionStatus::Continue;
+	return m_PauseOnOutput ? ExecutionProgress::Pause : ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::JumpIfTrue(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::JumpIfTrue(ProgramIterator& it)
 {
 	return InternalJump(it, [](IntCode f) { return f != 0; });
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::JumpIfFalse(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::JumpIfFalse(ProgramIterator& it)
 {
 	return InternalJump(it, [](IntCode f) { return f == 0; });
 }
 
 template<typename IntCodeTest>
-IntCodeProgram::ExecutionStatus IntCodeProgram::InternalJump(ProgramIterator& it, IntCodeTest test)
+IntCodeProgram::ExecutionProgress IntCodeProgram::InternalJump(ProgramIterator& it, IntCodeTest test)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert( opCode == OpCode::JF_ || opCode == OpCode::JT_ );
@@ -243,26 +277,26 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::InternalJump(ProgramIterator& it
 	if (test(in1))
 	{
 		it = m_Program.begin() + in2;
-		return ExecutionStatus::Jump;
+		return ExecutionProgress::Jump;
 	}
 	else
 	{
-		return ExecutionStatus::Continue;
+		return ExecutionProgress::Continue;
 	}
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::LessThan(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::LessThan(ProgramIterator& it)
 {
 	return InternalCompare(it, [](IntCode f1, IntCode f2) { return f1 < f2;  });
 }
 
-IntCodeProgram::ExecutionStatus IntCodeProgram::Equals(ProgramIterator& it)
+IntCodeProgram::ExecutionProgress IntCodeProgram::Equals(ProgramIterator& it)
 {
 	return InternalCompare(it, [](IntCode f1, IntCode f2) { return f1 == f2; });
 }
 
 template<typename IntCodeComparison>
-IntCodeProgram::ExecutionStatus IntCodeProgram::InternalCompare(ProgramIterator& it, IntCodeComparison comparison)
+IntCodeProgram::ExecutionProgress IntCodeProgram::InternalCompare(ProgramIterator& it, IntCodeComparison comparison)
 {
 	OpCode opCode = static_cast<OpCode>(*it % 100);
 	assert( opCode == OpCode::LT_ || opCode == OpCode::EQU );
@@ -276,5 +310,5 @@ IntCodeProgram::ExecutionStatus IntCodeProgram::InternalCompare(ProgramIterator&
 
 	m_Program[out] = comparison(in1, in2) ? static_cast<IntCode>(1) : static_cast<IntCode>(0);
 	
-	return ExecutionStatus::Continue;
+	return ExecutionProgress::Continue;
 }
