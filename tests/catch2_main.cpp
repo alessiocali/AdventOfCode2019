@@ -8,9 +8,10 @@
 #include <SunnyWithAChanceOfAsteroidsSolver.h>
 #include <UniversalOrbitMapSolver.h>
 #include <AmplificationCircuitSolver.h>
+#include <SpaceImageFormatSolver.h>
 
 template<typename Solver, typename InputType, typename SolutionAType, typename SolutionBType>
-void ValidateProblem(InputType input, SolutionAType solutionA, SolutionBType solutionB)
+void ValidateProblem(InputType input, const SolutionAType& solutionA, const SolutionBType& solutionB)
 {
 	Solver solver;
 	solver.Init(input);
@@ -59,4 +60,22 @@ TEST_CASE("AmplificationCircuit")
 {
 	constexpr const char* input = "inputs/Amplification_Input.txt";
 	ValidateProblem<AmplificationCircuitSolver, std::string>(input, 273814, 34579864);
+}
+
+TEST_CASE("SpaceImageFormat")
+{
+	constexpr const char* inputFile = "inputs/SpaceImage_Input.txt";
+
+	constexpr const char* problemBSolution =
+		"\n\n"
+		"###  #     ##  #  # #### \n"
+		"#  # #    #  # # #  #    \n"
+		"#  # #    #  # ##   ###  \n"
+		"###  #    #### # #  #    \n"
+		"# #  #    #  # # #  #    \n"
+		"#  # #### #  # #  # #    \n"
+		"\n";
+
+	SpaceImageInput input(25, 6, std::string(inputFile));
+	ValidateProblem<SpaceImageFormatSolver>(input, 1485, std::string(problemBSolution));
 }
