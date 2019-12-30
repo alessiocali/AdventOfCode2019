@@ -4,7 +4,7 @@
 
 #include <vector>
 
-class IntCodeProgram;
+class IntCodeComputer;
 
 class SunnyWithAChanceOfAsteroidsSolver : public ProblemSolver<std::string, std::uint32_t, std::uint32_t>
 {
@@ -17,5 +17,5 @@ private:
 	std::string m_InputFilename;
 
 	std::uint32_t SolveWithInput(std::uint32_t input) const;
-	static std::vector<int> GetOutputAsIntegers(IntCodeProgram& inputStream);
+	static std::vector<int> GetOutputAsIntegers(IntCodeComputer& inputStream);
 };

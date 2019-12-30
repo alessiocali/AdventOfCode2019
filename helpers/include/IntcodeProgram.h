@@ -1,24 +1,42 @@
 #pragma once
 
-#include <vector>
-#include <unordered_map>
-#include <memory>
-#include <string>
 #include <iostream>
+#include <memory>
 #include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-/****************************************************************************************************
-		BRIEF TERMINOLOGY
+#include <boost/multiprecision/cpp_int.hpp>
 
-- IntCode : A number composing an Intcode Program
-- Program : A sequence of Intcodes
-- InstructionCode : An Intcode which can be decomposed in an OpCode and zero or more ParameterModes
-- OpCode : Two digits representing an Instruction to execute
-- ParameterMode : A single digit representing how to interpret subsequent Intcode
+using IntCodeAddress = boost::multiprecision::cpp_int;
+using IntCodeValue = boost::multiprecision::cpp_int;
+using IntCodeProgram = std::vector<IntCodeValue>;
 
-*****************************************************************************************************/
+class IntCodeMemory
+{
+public:
+	inline bool IsLoaded() const { return !(m_SequentialMemory.empty() && m_UnboundedMemory.empty()); }
 
-class IntCodeProgram
+	// Implementation choice: ReadValue returns by value (no pun intended)
+	// This is because reading from an arbitrary unbounded address has to return 0
+	// if such address has never been written to. 
+	//
+	// The alternative would have been to have a non-const read which puts the 0 on
+	// read, which although maybe more efficent would have been hacky at best.
+
+	void Reset(IntCodeProgram initialProgram);
+	void StoreValue(const IntCodeAddress& address, IntCodeValue value);
+	IntCodeValue ReadValue(const IntCodeAddress& address) const;
+
+private:
+	bool IsAddressInSequentialMemoryRange(const IntCodeAddress& address) const;
+
+	std::vector<IntCodeValue> m_SequentialMemory;
+	std::unordered_map<IntCodeAddress, IntCodeValue> m_UnboundedMemory;
+};
+
+class IntCodeComputer
 {
 public:
 	enum class ExecutionProgress
@@ -39,8 +57,8 @@ public:
 
 	struct InitData
 	{
-		std::uint32_t noun;
-		std::uint32_t verb;
+		IntCodeValue noun;
+		IntCodeValue verb;
 	};
 
 	enum class OpCode : int
@@ -53,26 +71,25 @@ public:
 		JF_ = 6,
 		LT_ = 7,
 		EQU = 8,
+		RBS = 9,
 		HLT = 99
 	};
 
 	enum class ParameterMode : int
 	{
 		POS = 0,
-		IMM = 1
+		IMM = 1,
+		REL = 2
 	};
 
-	using IntCode = int;
-	using ProgramData = std::vector<IntCode>;
+	explicit IntCodeComputer(std::string filename);
 
-	explicit IntCodeProgram(std::string filename);
-
-	IntCodeProgram(const IntCodeProgram& other) = delete;
-	IntCodeProgram& operator=(const IntCodeProgram& other) = delete;
+	IntCodeComputer(const IntCodeComputer& other) = delete;
+	IntCodeComputer& operator=(const IntCodeComputer& other) = delete;
 
 	// The internal streams are trivially movable, but not copyable
-	IntCodeProgram(IntCodeProgram&& other) = default;
-	IntCodeProgram& operator=(IntCodeProgram&& other) = default;
+	IntCodeComputer(IntCodeComputer&& other) = default;
+	IntCodeComputer& operator=(IntCodeComputer&& other) = default;
 
 	void SetNounAndVerb(InitData init);
 	void Reset();
@@ -85,14 +102,13 @@ public:
 	inline bool GetOutput(T& output) { return bool(m_OutputStream >> output); }
 
 	inline void SetPauseOnOutput(bool pauseOnOutput) { m_PauseOnOutput = pauseOnOutput; }
-	inline bool IsValid() const { return !m_Program.empty(); }
+	inline bool IsValid() const { return m_Memory.IsLoaded(); }
 	inline bool IsRunning() const { return m_Status == ExecutionStatus::Running; }
 	inline bool IsHalted() const { return m_Status == ExecutionStatus::Halted; }
-	inline IntCode GetIntCodeAt(std::size_t idx) const { return m_Program[idx]; }
+	inline IntCodeValue GetValueAt(IntCodeAddress address) const { return m_Memory.ReadValue(address); }
 
 private:
-	using ProgramIterator = ProgramData::iterator;
-	using InstructionFnc = ExecutionProgress(IntCodeProgram::*)(ProgramIterator&);
+	using InstructionFnc = ExecutionProgress(IntCodeComputer::*)();
 	using InstructionSet = std::unordered_map<OpCode, InstructionFnc>;
 
 	// Used for static init of the InstructionSet
@@ -106,31 +122,33 @@ private:
 		InstructionSet m_InstructionSet;
 	};
 
-	ExecutionProgress Process(ProgramIterator& it);
-	IntCode GetValueFromParameterMode(ParameterMode mode, IntCode intCode) const;
+	static IntCodeProgram LoadFromFile(const std::string& filename);
 
-	static ProgramData LoadFromFile(const std::string& filename);
+	ExecutionProgress ProcessCurrentInstruction();
+	IntCodeValue GetValueFromParameterMode(ParameterMode mode, IntCodeValue value) const;
+	IntCodeAddress GetAddressFromParameterMode(ParameterMode mode, IntCodeValue value) const;
 
-	static bool IsIntCodeAnInstructionCode(IntCode intCode);
-	static bool IsValueAParameterMode(int value);
+	static bool IsValueAnInstructionCode(IntCodeValue value);
+	static bool IsValueAParameterMode(IntCodeValue value);
 
-	static std::vector<ParameterMode> ExtractParameterModes(IntCode value, std::size_t count);
+	static std::vector<ParameterMode> ExtractParameterModes(IntCodeValue value, std::size_t count);
 
-	ExecutionProgress Add(ProgramIterator& it);
-	ExecutionProgress Mul(ProgramIterator& it);
-	ExecutionProgress Input(ProgramIterator& it);
-	ExecutionProgress Output(ProgramIterator& it);
-	ExecutionProgress JumpIfTrue(ProgramIterator& it);
-	ExecutionProgress JumpIfFalse(ProgramIterator& it);
-	ExecutionProgress LessThan(ProgramIterator& it);
-	ExecutionProgress Equals(ProgramIterator& it);
-	ExecutionProgress Halt(ProgramIterator& it) { return ExecutionProgress::Halt; }
+	ExecutionProgress Add();
+	ExecutionProgress Mul();
+	ExecutionProgress Input();
+	ExecutionProgress Output();
+	ExecutionProgress JumpIfTrue();
+	ExecutionProgress JumpIfFalse();
+	ExecutionProgress LessThan();
+	ExecutionProgress Equals();
+	ExecutionProgress Rebase();
+	ExecutionProgress Halt() { return ExecutionProgress::Halt; }
 
 	template<typename IntCodeTest>
-	ExecutionProgress InternalJump(ProgramIterator& it, IntCodeTest test);
+	ExecutionProgress InternalJump(IntCodeTest test);
 
 	template<typename IntCodeComparison>
-	ExecutionProgress InternalCompare(ProgramIterator& it, IntCodeComparison compare);
+	ExecutionProgress InternalCompare(IntCodeComparison compare);
 
 	static const InstructionSet& GetInstructionSet() 
 	{
@@ -141,12 +159,15 @@ private:
 	inline std::ostream& GetOutputStream() { return m_OutputStream; }
 	inline std::istream& GetInputStream() { return m_InputStream; }
 
-	const ProgramData	m_OriginalProgram;
-	ProgramData			m_Program;
+	inline const IntCodeValue GetCurrentInstruction() const { return m_Memory.ReadValue(m_InstructionPointer); }
+	inline const IntCodeValue GetNextValueAndStepPointer() { return m_Memory.ReadValue(++m_InstructionPointer); }
+	inline OpCode GetCurrentOpCode() const { return static_cast<OpCode>((GetCurrentInstruction() % 100).convert_to<int>()); }
+
+	const IntCodeProgram m_OriginalProgram;
 	
-	// I couldn't store a ProgramIterator because it gets invalidated on move/copy
-	// and I'm too lazy to write a move ctor just for that.
-	std::size_t			m_InstructionPointer;	
+	IntCodeMemory		m_Memory;
+	IntCodeAddress		m_InstructionPointer = 0;
+	IntCodeAddress		m_RelativeBase = 0;
 	ExecutionStatus		m_Status = ExecutionStatus::NotStarted;
 	bool				m_PauseOnOutput = false;
 

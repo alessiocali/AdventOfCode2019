@@ -5,59 +5,107 @@
 #include <sstream>
 #include <unordered_set>
 #include <cassert>
+#include <limits>
 
-IntCodeProgram::InstructionSetHolder::InstructionSetHolder()
+void IntCodeMemory::Reset(IntCodeProgram initialProgram)
 {
-	m_InstructionSet[OpCode::ADD] = &IntCodeProgram::Add;
-	m_InstructionSet[OpCode::MUL] = &IntCodeProgram::Mul;
-	m_InstructionSet[OpCode::IN_] = &IntCodeProgram::Input;
-	m_InstructionSet[OpCode::OU_] = &IntCodeProgram::Output;
-	m_InstructionSet[OpCode::JT_] = &IntCodeProgram::JumpIfTrue;
-	m_InstructionSet[OpCode::JF_] = &IntCodeProgram::JumpIfFalse;
-	m_InstructionSet[OpCode::LT_] = &IntCodeProgram::LessThan;
-	m_InstructionSet[OpCode::EQU] = &IntCodeProgram::Equals;
-	m_InstructionSet[OpCode::HLT] = &IntCodeProgram::Halt;
+	m_SequentialMemory.clear();
+	m_SequentialMemory = std::move(initialProgram);
+	m_UnboundedMemory.clear();
 }
 
-bool IntCodeProgram::IsIntCodeAnInstructionCode(IntCode intCode)
+void IntCodeMemory::StoreValue(const IntCodeAddress& address, IntCodeValue value)
 {
-	static const std::unordered_set<IntCode> ValidOpCodes =
+	assert(address >= 0);
+
+	if (IsAddressInSequentialMemoryRange(address))
 	{
-		static_cast<IntCode>(OpCode::ADD),
-		static_cast<IntCode>(OpCode::MUL),
-		static_cast<IntCode>(OpCode::IN_),
-		static_cast<IntCode>(OpCode::OU_),
-		static_cast<IntCode>(OpCode::JT_),
-		static_cast<IntCode>(OpCode::JF_),
-		static_cast<IntCode>(OpCode::LT_),
-		static_cast<IntCode>(OpCode::EQU),
-		static_cast<IntCode>(OpCode::HLT)
+		m_SequentialMemory[address.convert_to<std::size_t>()] = std::move(value);
+	}
+	else
+	{
+		m_UnboundedMemory[address] = value;
+	}
+}
+
+IntCodeValue IntCodeMemory::ReadValue(const IntCodeAddress& address) const
+{
+	assert(address >= 0);
+
+	if (IsAddressInSequentialMemoryRange(address))
+	{
+		return m_SequentialMemory[address.convert_to<std::size_t>()];
+	}
+	else
+	{
+		return m_UnboundedMemory.count(address) > 0 ? m_UnboundedMemory.at(address) : 0;
+	}
+}
+
+bool IntCodeMemory::IsAddressInSequentialMemoryRange(const IntCodeAddress& address) const
+{
+	if (address > IntCodeAddress(std::numeric_limits<std::size_t>::max()))
+	{
+		return false;
+	}
+
+	return address.convert_to<std::size_t>() < m_SequentialMemory.size();
+}
+
+IntCodeComputer::InstructionSetHolder::InstructionSetHolder()
+{
+	m_InstructionSet[OpCode::ADD] = &IntCodeComputer::Add;
+	m_InstructionSet[OpCode::MUL] = &IntCodeComputer::Mul;
+	m_InstructionSet[OpCode::IN_] = &IntCodeComputer::Input;
+	m_InstructionSet[OpCode::OU_] = &IntCodeComputer::Output;
+	m_InstructionSet[OpCode::JT_] = &IntCodeComputer::JumpIfTrue;
+	m_InstructionSet[OpCode::JF_] = &IntCodeComputer::JumpIfFalse;
+	m_InstructionSet[OpCode::LT_] = &IntCodeComputer::LessThan;
+	m_InstructionSet[OpCode::EQU] = &IntCodeComputer::Equals;
+	m_InstructionSet[OpCode::RBS] = &IntCodeComputer::Rebase;
+	m_InstructionSet[OpCode::HLT] = &IntCodeComputer::Halt;
+}
+
+bool IntCodeComputer::IsValueAnInstructionCode(IntCodeValue value)
+{
+	static const std::unordered_set<IntCodeValue> ValidOpCodes =
+	{
+		OpCode::ADD,
+		OpCode::MUL,
+		OpCode::IN_,
+		OpCode::OU_,
+		OpCode::JT_,
+		OpCode::JF_,
+		OpCode::LT_,
+		OpCode::EQU,
+		OpCode::RBS,
+		OpCode::HLT
 	};
 
-	return ValidOpCodes.count(intCode % 100) > 0;
+	return ValidOpCodes.count(value % 100) > 0;
 }
 
-bool IntCodeProgram::IsValueAParameterMode(int value)
+bool IntCodeComputer::IsValueAParameterMode(IntCodeValue value)
 {
-	static const std::unordered_set<int> ValidParameterModes =
+	static const std::unordered_set<IntCodeValue> ValidParameterModes =
 	{
-		static_cast<int>(ParameterMode::POS),
-		static_cast<int>(ParameterMode::IMM)
+		ParameterMode::POS,
+		ParameterMode::IMM,
+		ParameterMode::REL
 	};
 
 	return ValidParameterModes.count(value) > 0;
 }
 
-std::vector<IntCodeProgram::ParameterMode> IntCodeProgram::ExtractParameterModes(IntCode value, std::size_t count)
+std::vector<IntCodeComputer::ParameterMode> IntCodeComputer::ExtractParameterModes(IntCodeValue value, std::size_t count)
 {
 	std::vector<ParameterMode> parameterModes(count, ParameterMode::POS);
 	
-	// Clear OpCode
 	value /= 100;
 	std::size_t idx = 0;
 	while (idx < count && value > 0)
 	{
-		int parameterModeValue = value % 10;
+		IntCodeValue parameterModeValue = value % 10;
 		const bool isValid = IsValueAParameterMode(parameterModeValue);
 		
 		if (!isValid)
@@ -65,7 +113,7 @@ std::vector<IntCodeProgram::ParameterMode> IntCodeProgram::ExtractParameterModes
 			std::cerr << "Unexpected Parameter Mode " << parameterModeValue << std::endl;
 		}
 		
-		const ParameterMode parameterMode = isValid ? static_cast<ParameterMode>(parameterModeValue) : ParameterMode::POS;
+		const ParameterMode parameterMode = isValid ? static_cast<ParameterMode>(parameterModeValue.convert_to<int>()) : ParameterMode::POS;
 		parameterModes[idx++] = parameterMode;
 		value /= 10;
 	}
@@ -73,23 +121,41 @@ std::vector<IntCodeProgram::ParameterMode> IntCodeProgram::ExtractParameterModes
 	return parameterModes;
 }
 
-IntCodeProgram::IntCode IntCodeProgram::GetValueFromParameterMode(ParameterMode mode, IntCode value) const
+IntCodeValue IntCodeComputer::GetValueFromParameterMode(ParameterMode mode, IntCodeValue value) const
 {
 	switch (mode)
 	{
 	case ParameterMode::IMM:
 		return value;
 	case ParameterMode::POS:
-		return m_Program[value];
+		return m_Memory.ReadValue(static_cast<IntCodeAddress>(value));
+	case ParameterMode::REL:
+		return m_Memory.ReadValue(static_cast<IntCodeAddress>(value) + m_RelativeBase);
 	default:
 		std::cerr << "Unrecognized ParameterMode " << static_cast<int>(mode) << std::endl;
 		return 0;
 	}
 }
 
-IntCodeProgram::ProgramData IntCodeProgram::LoadFromFile(const std::string& filename)
+IntCodeAddress IntCodeComputer::GetAddressFromParameterMode(ParameterMode mode, IntCodeValue value) const
 {
-	ProgramData program;
+	switch (mode)
+	{
+	case ParameterMode::POS:
+		return value;
+	case ParameterMode::REL:
+		return value + m_RelativeBase;
+	case ParameterMode::IMM:
+		std::cerr << "Cannot write on an Immediate" << std::endl;
+	default:
+		std::cerr << "Unrecognized ParameterMode " << static_cast<int>(mode) << std::endl;
+		return 0;
+	}
+}
+
+IntCodeProgram IntCodeComputer::LoadFromFile(const std::string& filename)
+{
+	IntCodeProgram program;
 
 	std::ifstream input(filename);
 	if (!input.is_open())
@@ -97,32 +163,37 @@ IntCodeProgram::ProgramData IntCodeProgram::LoadFromFile(const std::string& file
 		return program;
 	}
 
-	std::string programString;
-	while (std::getline(input, programString, ','))
+	std::string programLine;
+	while (std::getline(input, programLine))
 	{
-		IntCode intCode = static_cast<IntCode>(std::stoi(programString));
-		program.push_back(intCode);
+		std::stringstream programStringStream(programLine);
+		std::string intCodeValueString;
+		while (std::getline(programStringStream, intCodeValueString, ','))
+		{
+			program.emplace_back(intCodeValueString);
+		}
 	}
 
 	return program;
 }
 
-IntCodeProgram::IntCodeProgram(std::string fileName)
+IntCodeComputer::IntCodeComputer(std::string fileName)
 	: m_OriginalProgram(LoadFromFile(fileName))
 {
 	Reset();
 }
 
-void IntCodeProgram::SetNounAndVerb(InitData initData)
+void IntCodeComputer::SetNounAndVerb(InitData initData)
 {
-	m_Program[1] = initData.noun;
-	m_Program[2] = initData.verb;
+	m_Memory.StoreValue(1, initData.noun);
+	m_Memory.StoreValue(2, initData.verb);
 }
 
-void IntCodeProgram::Reset()
+void IntCodeComputer::Reset()
 {
-	m_Program = m_OriginalProgram;
+	m_Memory.Reset(m_OriginalProgram);
 	m_InstructionPointer = 0;
+	m_RelativeBase = 0;
 	m_Status = ExecutionStatus::NotStarted;
 	
 	m_InputStream.str(std::string());
@@ -132,29 +203,26 @@ void IntCodeProgram::Reset()
 	m_OutputStream.clear();
 }
 
-void IntCodeProgram::Execute()
+void IntCodeComputer::Execute()
 {
 	m_Status = ExecutionStatus::Running;
 
-	ProgramIterator it = m_Program.begin() + m_InstructionPointer;
-	ProgramIterator end = m_Program.end();
-
-	while (it != end && IsRunning())
+	while (IsRunning())
 	{
-		const ExecutionProgress status = Process(it);
+		const ExecutionProgress status = ProcessCurrentInstruction();
 		switch(status)
 		{
 		case ExecutionProgress::Halt:
 			m_Status = ExecutionStatus::Halted;
 			break;
 		case ExecutionProgress::Pause:
-			it++;
+			m_InstructionPointer = m_InstructionPointer + 1;
 			m_Status = ExecutionStatus::Paused;
 			break;
 		case ExecutionProgress::Jump:
 			continue;
 		case ExecutionProgress::Continue:
-			it++;
+			m_InstructionPointer = m_InstructionPointer + 1;
 			break;
 		default:
 			std::cerr << "Unrecognized ExecutionStatus: " << static_cast<int>(status) << std::endl;
@@ -162,121 +230,114 @@ void IntCodeProgram::Execute()
 			break;
 		}
 	}
-
-	m_InstructionPointer = std::distance(m_Program.begin(), it);
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Process(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::ProcessCurrentInstruction()
 {
-	if (!IsIntCodeAnInstructionCode(*it))
+	const IntCodeValue& instruction = GetCurrentInstruction();
+	if (!IsValueAnInstructionCode(instruction))
 	{
-		std::cerr << "Unexpected INTCODE is not an INSTRUCTION_CODE: " << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
+		std::cerr << "Unexpected VALUE is not an INSTRUCTION_CODE: " << instruction << " at position " << m_InstructionPointer << std::endl;
 		return ExecutionProgress::Halt;
 	}
 
-	OpCode opCode = static_cast<OpCode>(*it % 100);
+	OpCode opCode = GetCurrentOpCode();
 	const InstructionSet& instructionSet = GetInstructionSet();
 	if (instructionSet.count(opCode) && instructionSet.at(opCode))
 	{
-		const InstructionFnc instruction = instructionSet.at(opCode);
-		return (this->*instruction)(it);
+		const InstructionFnc instructionFnc = instructionSet.at(opCode);
+		return (this->*instructionFnc)();
 	}
 	else
 	{
-		std::cerr << "Unexpected OPCODE " << *it << " at position " << std::distance(m_Program.begin(), it) << std::endl;
+		std::cerr << "Unexpected OPCODE " << instruction << " at position " << m_InstructionPointer << std::endl;
 		return ExecutionProgress::Halt;
 	}
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Add(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::Add()
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
-	assert(opCode == OpCode::ADD);
+	assert(GetCurrentOpCode() == OpCode::ADD);
 	
-	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 3);
-	assert(parameterModes[2] == ParameterMode::POS);
+	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 3);
 
-	const IntCode in1 = GetValueFromParameterMode(parameterModes[0], *(++it));
-	const IntCode in2 = GetValueFromParameterMode(parameterModes[1], *(++it));
-	const IntCode out = *(++it);
+	const IntCodeValue in1 = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+	const IntCodeValue in2 = GetValueFromParameterMode(parameterModes[1], GetNextValueAndStepPointer());
+	const IntCodeAddress out = GetAddressFromParameterMode(parameterModes[2], GetNextValueAndStepPointer());
 
-	m_Program[out] = in1 + in2;
+	m_Memory.StoreValue(out, in1 + in2);
 
 	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Mul(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::Mul()
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
-	assert(opCode == OpCode::MUL);
+	assert(GetCurrentOpCode() == OpCode::MUL);
 
-	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 3);
-	assert(parameterModes[2] == ParameterMode::POS);
+	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 3);
 
-	const IntCode in1Val = GetValueFromParameterMode(parameterModes[0], *(++it));
-	const IntCode in2Val = GetValueFromParameterMode(parameterModes[1], *(++it));
-	const IntCode out = *(++it);
+	const IntCodeValue in1 = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+	const IntCodeValue in2 = GetValueFromParameterMode(parameterModes[1], GetNextValueAndStepPointer());
+	const IntCodeAddress out = GetAddressFromParameterMode(parameterModes[2], GetNextValueAndStepPointer());
 
-	m_Program[out] = in1Val * in2Val;
+	m_Memory.StoreValue(out, in1 * in2);
 
 	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Input(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::Input()
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
-	assert(opCode == OpCode::IN_);
+	assert(GetCurrentOpCode() == OpCode::IN_);
 
-	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 1);
-	assert(parameterModes[0] == ParameterMode::POS);
+	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 1);
 	
-	int value;
+	IntCodeValue value;
 	GetInputStream() >> value;
 
-	IntCode out = *(++it);
-	m_Program[out] = static_cast<IntCode>(value);
+	IntCodeAddress out = GetAddressFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+
+	m_Memory.StoreValue(out, value);
 
 	return ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Output(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::Output()
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
-	assert(opCode == OpCode::OU_);
+	assert(GetCurrentOpCode() == OpCode::OU_);
 
-	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 1);
+	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 1);
 
-	const IntCode in1 = GetValueFromParameterMode(parameterModes[0], *(++it));
+	const IntCodeValue in1 = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
 
-	GetOutputStream() << static_cast<int>(in1) << std::endl;
+	GetOutputStream() << in1 << std::endl;
 	
 	return m_PauseOnOutput ? ExecutionProgress::Pause : ExecutionProgress::Continue;
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::JumpIfTrue(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::JumpIfTrue()
 {
-	return InternalJump(it, [](IntCode f) { return f != 0; });
+	return InternalJump([](IntCodeValue v) { return v != 0; });
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::JumpIfFalse(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::JumpIfFalse()
 {
-	return InternalJump(it, [](IntCode f) { return f == 0; });
+	return InternalJump([](IntCodeValue v) { return v == 0; });
 }
 
 template<typename IntCodeTest>
-IntCodeProgram::ExecutionProgress IntCodeProgram::InternalJump(ProgramIterator& it, IntCodeTest test)
+IntCodeComputer::ExecutionProgress IntCodeComputer::InternalJump(IntCodeTest test)
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
+	OpCode opCode = GetCurrentOpCode();
 	assert( opCode == OpCode::JF_ || opCode == OpCode::JT_ );
 
-	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 2);
+	const std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 2);
 
-	const IntCode in1 = GetValueFromParameterMode(parameterModes[0], *(++it));
-	const IntCode in2 = GetValueFromParameterMode(parameterModes[1], *(++it));
+	const IntCodeValue in1 = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+	const IntCodeValue in2 = GetValueFromParameterMode(parameterModes[1], GetNextValueAndStepPointer());
 
 	if (test(in1))
 	{
-		it = m_Program.begin() + in2;
+		m_InstructionPointer = in2;
 		return ExecutionProgress::Jump;
 	}
 	else
@@ -285,30 +346,41 @@ IntCodeProgram::ExecutionProgress IntCodeProgram::InternalJump(ProgramIterator& 
 	}
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::LessThan(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::LessThan()
 {
-	return InternalCompare(it, [](IntCode f1, IntCode f2) { return f1 < f2;  });
+	return InternalCompare([](IntCodeValue v1, IntCodeValue v2) { return v1 < v2;  });
 }
 
-IntCodeProgram::ExecutionProgress IntCodeProgram::Equals(ProgramIterator& it)
+IntCodeComputer::ExecutionProgress IntCodeComputer::Equals()
 {
-	return InternalCompare(it, [](IntCode f1, IntCode f2) { return f1 == f2; });
+	return InternalCompare([](IntCodeValue v1, IntCodeValue v2) { return v1 == v2; });
 }
 
 template<typename IntCodeComparison>
-IntCodeProgram::ExecutionProgress IntCodeProgram::InternalCompare(ProgramIterator& it, IntCodeComparison comparison)
+IntCodeComputer::ExecutionProgress IntCodeComputer::InternalCompare(IntCodeComparison comparison)
 {
-	OpCode opCode = static_cast<OpCode>(*it % 100);
+	OpCode opCode = GetCurrentOpCode();
 	assert( opCode == OpCode::LT_ || opCode == OpCode::EQU );
 
-	std::vector<ParameterMode> parameterModes = ExtractParameterModes(*it, 3);
-	assert(parameterModes[2] == ParameterMode::POS);
+	std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 3);
 
-	const IntCode in1 = GetValueFromParameterMode(parameterModes[0], *(++it));
-	const IntCode in2 = GetValueFromParameterMode(parameterModes[1], *(++it));
-	const IntCode out = *(++it);
+	const IntCodeValue in1 = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+	const IntCodeValue in2 = GetValueFromParameterMode(parameterModes[1], GetNextValueAndStepPointer());
+	const IntCodeAddress out = GetAddressFromParameterMode(parameterModes[2], GetNextValueAndStepPointer());
 
-	m_Program[out] = comparison(in1, in2) ? static_cast<IntCode>(1) : static_cast<IntCode>(0);
+	m_Memory.StoreValue(out, comparison(in1, in2) ? 1 : 0);
 	
+	return ExecutionProgress::Continue;
+}
+
+IntCodeComputer::ExecutionProgress IntCodeComputer::Rebase()
+{
+	assert(GetCurrentOpCode() == OpCode::RBS);
+
+	std::vector<ParameterMode> parameterModes = ExtractParameterModes(GetCurrentInstruction(), 1);
+	const IntCodeValue in = GetValueFromParameterMode(parameterModes[0], GetNextValueAndStepPointer());
+
+	m_RelativeBase = m_RelativeBase + static_cast<IntCodeAddress>(in);
+
 	return ExecutionProgress::Continue;
 }

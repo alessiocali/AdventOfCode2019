@@ -19,6 +19,6 @@ private:
 
 	std::string m_InputFileName;
 
-	std::vector<IntCodeProgram> LoadAmplifiersFromFile() const;
-	uint InternalSolve(std::vector<IntCodeProgram>& amplifiers, PermutationGenerator<uint>& phaseGenerator) const;
+	std::vector<IntCodeComputer> LoadAmplifiersFromFile() const;
+	uint InternalSolve(std::vector<IntCodeComputer>& amplifiers, PermutationGenerator<uint>& phaseGenerator) const;
 };

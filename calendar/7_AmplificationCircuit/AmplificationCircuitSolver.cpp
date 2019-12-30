@@ -13,7 +13,7 @@ uint AmplificationCircuitSolver::SolveProblemA() const
 
 uint AmplificationCircuitSolver::SolveProblemB() const
 {
-	std::vector<IntCodeProgram>& amplifiers = LoadAmplifiersFromFile();
+	std::vector<IntCodeComputer>& amplifiers = LoadAmplifiersFromFile();
 
 	for (std::size_t i = 0; i < numberOfAmplifiers; i++)
 	{
@@ -24,13 +24,13 @@ uint AmplificationCircuitSolver::SolveProblemB() const
 	return InternalSolve(amplifiers, phaseGenerator);
 }
 
-std::vector<IntCodeProgram> AmplificationCircuitSolver::LoadAmplifiersFromFile() const
+std::vector<IntCodeComputer> AmplificationCircuitSolver::LoadAmplifiersFromFile() const
 {
-	std::vector<IntCodeProgram> amplifiers;
+	std::vector<IntCodeComputer> amplifiers;
 
 	for (std::size_t i = 0; i < numberOfAmplifiers; i++)
 	{
-		IntCodeProgram& amplifier = amplifiers.emplace_back(m_InputFileName);
+		IntCodeComputer& amplifier = amplifiers.emplace_back(m_InputFileName);
 		if (!amplifier.IsValid())
 		{
 			std::cerr << "Invalid input file " << m_InputFileName << std::endl;
@@ -41,14 +41,14 @@ std::vector<IntCodeProgram> AmplificationCircuitSolver::LoadAmplifiersFromFile()
 	return amplifiers;
 }
 
-uint AmplificationCircuitSolver::InternalSolve(std::vector<IntCodeProgram>& amplifiers, PermutationGenerator<uint>& phaseGenerator) const
+uint AmplificationCircuitSolver::InternalSolve(std::vector<IntCodeComputer>& amplifiers, PermutationGenerator<uint>& phaseGenerator) const
 {
 	assert(phaseGenerator.GetCurrentPermutation().size() == amplifiers.size());
 
 	int currentInput = 0;
 	int maxOutput = 0;
 
-	const IntCodeProgram& lastAmplifier = *(amplifiers.end() - 1);
+	const IntCodeComputer& lastAmplifier = *(amplifiers.end() - 1);
 	do
 	{
 		for (std::size_t i = 0; i < amplifiers.size(); i++)

@@ -16,7 +16,7 @@ std::uint32_t SunnyWithAChanceOfAsteroidsSolver::SolveProblemB() const
 
 std::uint32_t SunnyWithAChanceOfAsteroidsSolver::SolveWithInput(std::uint32_t input) const
 {
-	IntCodeProgram program(m_InputFilename);
+	IntCodeComputer program(m_InputFilename);
 	program.FeedInput(input);
 	program.Execute();
 
@@ -25,7 +25,7 @@ std::uint32_t SunnyWithAChanceOfAsteroidsSolver::SolveWithInput(std::uint32_t in
 	return static_cast<std::uint32_t>(output.back());
 }
 
-std::vector<int> SunnyWithAChanceOfAsteroidsSolver::GetOutputAsIntegers(IntCodeProgram& program)
+std::vector<int> SunnyWithAChanceOfAsteroidsSolver::GetOutputAsIntegers(IntCodeComputer& program)
 {
 	std::vector<int> output;
 

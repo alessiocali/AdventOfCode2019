@@ -25,4 +25,14 @@ target_compile_features( Helpers
     cxx_std_17
 )
 
-target_link_libraries( Helpers PUBLIC sfml-system sfml-window sfml-graphics PRIVATE Boost::program_options )
+target_link_libraries( Helpers 
+    PUBLIC 
+    sfml-system 
+    sfml-window 
+    sfml-graphics 
+    
+    Boost::boost
+
+    PRIVATE
+    Boost::program_options
+)

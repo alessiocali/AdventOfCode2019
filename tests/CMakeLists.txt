@@ -27,6 +27,9 @@ add_executable(
 
     ${CalendarDir}/8_SpaceImageFormat/SpaceImageFormatSolver.h
     ${CalendarDir}/8_SpaceImageFormat/SpaceImageFormatSolver.cpp
+
+    ${CalendarDir}/9_SensorBoost/SensorBoostSolver.h
+    ${CalendarDir}/9_SensorBoost/SensorBoostSolver.cpp
 )
 
 target_link_libraries(
@@ -49,6 +52,7 @@ target_include_directories(
     ${CalendarDir}/6_UniversalOrbitMap
     ${CalendarDir}/7_AmplificationCircuit
     ${CalendarDir}/8_SpaceImageFormat
+    ${CalendarDir}/9_SensorBoost
 )
 
 file ( COPY ${CalendarDir}/1_TheTyrannyOfTheRocketEquation/Tyranny_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
@@ -59,3 +63,4 @@ file ( COPY ${CalendarDir}/5_SunnyWithAChanceOfAsteroids/Sunny_Input.txt DESTINA
 file ( COPY ${CalendarDir}/6_UniversalOrbitMap/Orbit_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
 file ( COPY ${CalendarDir}/7_AmplificationCircuit/Amplification_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
 file ( COPY ${CalendarDir}/8_SpaceImageFormat/SpaceImage_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )
+file ( COPY ${CalendarDir}/9_SensorBoost/Boost_Input.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/inputs/ )

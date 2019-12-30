@@ -4,7 +4,7 @@
 
 std::uint32_t _1202ProgramAlarmSolver::SolveProblemA() const
 {
-	IntCodeProgram program(m_ProgramFilename);
+	IntCodeComputer program(m_ProgramFilename);
 	program.SetNounAndVerb({ 12, 2 });
 	if (!program.IsValid())
 	{
@@ -13,7 +13,7 @@ std::uint32_t _1202ProgramAlarmSolver::SolveProblemA() const
 	}
 
 	program.Execute();
-	return program.GetIntCodeAt(0);
+	return program.GetValueAt(0).convert_to<std::uint32_t>();
 }
 
 std::uint32_t _1202ProgramAlarmSolver::SolveProblemB() const
@@ -25,11 +25,11 @@ std::uint32_t _1202ProgramAlarmSolver::SolveProblemB() const
 	{
 		for (std::uint32_t verb = 0; verb < 100; verb++)
 		{
-			IntCodeProgram program(m_ProgramFilename);
+			IntCodeComputer program(m_ProgramFilename);
 			program.SetNounAndVerb({ noun, verb });
 			program.Execute();
 
-			if (program.GetIntCodeAt(0) == Solution)
+			if (program.GetValueAt(0) == Solution)
 			{
 				return 100 * noun + verb;
 			}
