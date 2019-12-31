@@ -10,6 +10,7 @@
 #include <AmplificationCircuitSolver.h>
 #include <SpaceImageFormatSolver.h>
 #include <SensorBoostSolver.h>
+#include <MonitoringStationSolver.h>
 
 template<typename Solver, typename InputType, typename SolutionAType, typename SolutionBType>
 void ValidateProblem(InputType input, const SolutionAType& solutionA, const SolutionBType& solutionB)
@@ -84,6 +85,11 @@ TEST_CASE("SpaceImageFormat")
 TEST_CASE("SensorBoost")
 {
 	constexpr const char* inputFile = "inputs/Boost_Input.txt";
-
 	ValidateProblem<SensorBoostSolver, std::string>(inputFile, IntCodeValue("2682107844"), IntCodeValue("34738"));
+}
+
+TEST_CASE("MonitoringStation")
+{
+	constexpr const char* inputFile = "inputs/MonitoringStation_Input.txt";
+	ValidateProblem<MonitoringStationSolver, std::string>(inputFile, 253, 815);
 }
